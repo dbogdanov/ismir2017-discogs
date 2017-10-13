@@ -1,0 +1,5 @@
+hurry.filesize
+yaml
+xmltodict
+pandas
+tables
