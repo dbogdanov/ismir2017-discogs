@@ -129,7 +129,6 @@ def load_releases(size=None, part=100, ignore_genres=None):
     return data
 
 
-dump_json = "/tmp/foo_cut.json"
 if os.path.isfile(dump_pandas):
     print("Pandas dump file already found (%s)" % dump_pandas)
 else:
