@@ -3,6 +3,7 @@
 
 import pandas
 import matplotlib.pyplot as plt
+import numpy as np
 
 import pprint
 import pickle
@@ -360,12 +361,12 @@ def releases_coverage(data, data_stats=None):
         index = ['releases (%)', 'tracks (%)', 'artists (%)']
         df = pandas.DataFrame(stats_tmp, columns=columns, index=index)
         df = df.sort_values(by='releases (%)', axis=1, ascending=False)
-        stats[type_key] = df
+        data_stats[type_key] = df
 
-    return stats
+    return data_stats
 
 
-def visualize_releases_coverage(coverage_df, type="genre", show_top=15):
+def show_releases_coverage(coverage_df, type="genre", show_top=15):
     """
     Visualize coverage for a dataset in terms of genres, styles, countries, and
     formats given a DataFrame with coverage statistics
@@ -445,7 +446,29 @@ def coverage_countries_evolution(data,
 
 # Functions for track duration analysis
 
-def visualize_track_duration_per_genre(data, type="genre", title=None, genres=None, skip_genres=None):
+def plot_track_durations(sorted_genres, values, tracks_number, type, title, shorten_stylenames=None):
+    # 400 genre rows fit well into vertical size of 80 (0.2 row per 1 unit of size)
+    plt.figure(figsize=(7, len(sorted_genres)*0.2))
+
+    if type == "genre" or type == "genre_only":
+        labels = ["%s (%d)" % (g, tracks_number[g]) for g in sorted_genres]
+        plt.xlim([0, 25])
+
+    elif type == "style" or type == "style_only":
+        if shorten_stylenames:
+            labels = ["%s (%d)" % (g[1], tracks_number[g]) for g in sorted_genres]
+        else:
+            labels = ["%s - %s (%d)" % (g[0], g[1], tracks_number[g]) for g in sorted_genres]
+        plt.xlim([0, 40])
+
+    plt.boxplot(values, vert=False, labels=labels, whis=[5, 95])
+    if PLOT_TITLES:
+        plt.title(title)
+    plt.gca().xaxis.grid(True)
+    plt.show()
+
+
+def show_track_duration_per_genre(data, type="genre", title=None, genres=None, skip_genres=None, shorten_stylenames=False):
     """
     Visualize tracks durations per genre (style)
     - type:
@@ -455,6 +478,10 @@ def visualize_track_duration_per_genre(data, type="genre", title=None, genres=No
         - "style_only" using only tracks annotated by a single style
     - skip_genres: list of genres (or styles) to exclude from analysis
     - title: plot title to show
+    - shorten_stylenames: prints style name without genre name
+      (e.g., "Ambient" instead of "Electronic - Ambient")
+
+    Returns data required for plotting
     """
 
     if type == "genre":
@@ -499,29 +526,42 @@ def visualize_track_duration_per_genre(data, type="genre", title=None, genres=No
         #sorted_genres.append((np.median(stats[g]), scipy.stats.iqr(stats[g]), g))
 
     result = [(g, m, irq) for m, irq, g in sorted(sorted_genres)]
-
     sorted_genres = [g for g, m, irq in result]
     values = [stats[g] for g in sorted_genres]
+    plot_track_durations(sorted_genres, values, tracks_number, type=type,
+                         title=title, shorten_stylenames=shorten_stylenames)
 
-    if type == "genre" or type == "genre_only":
-        # 400 genre rows fit well into vertical size of 80 (0.2 row per 1 unit of size)
-        plt.figure(figsize=(7, len(sorted_genres)*0.2))
-        labels = ["%s (%d)" % (g, tracks_number[g]) for g in sorted_genres]
-        plt.xlim([0, 25])
-
-    elif type == "style" or type == "style_only":
-        plt.figure(figsize=(7, len(sorted_genres)*0.2))
-        labels = ["%s - %s (%d)" % (g[0], g[1], tracks_number[g]) for g in sorted_genres]
-        plt.xlim([0, 40])
-
-    plt.boxplot(values, vert=False, labels=labels, whis=[5, 95])
-    if PLOT_TITLES:
-        plt.title(title)
-    plt.gca().xaxis.grid(True)
-    plt.show()
-    return result
+    return result, sorted_genres, values, tracks_number
 
 
+def sample_release_dump(input_dump, sampled_dump, fraction):
+    """
+    Sample input release dump
+    - fraction: the fraction of releases to sample (e.g., 0.1 is 10%)
+    - input_dump: filename for the input hdf dump
+    - sampled_dump: filename for the output hdf dump
+    """
+    print("Loading release dump from %s" % input_dump)
+    data = pandas.read_hdf(input_dump)
+    print("Sampling %d%% of releases" % int(fraction*100))
+    data = data.sample(frac=fraction)
+    print("Releases in the sample: %d" % len(data))
+
+    print("Saving the sample dump DataFrame to %s" % sampled_dump)
+    data.to_hdf(sampled_dump, 'w')
+    return
+
+
+def load_release_dump(input_dump):
+    """
+    Loads hf release dump given the filename
+    """
+    return pandas.read_hdf(input_dump)
+
+
+
+
+"""
 # Load the dataset from pandas dump
 data = pandas.read_hdf(dump_pandas)
 
@@ -530,10 +570,10 @@ data_stats = releases_coverage(data)
 pprint.pprint(data_stats)
 
 # Dataset coverage
-#visualize_releases_coverage(data_stats['coverage_genres'], type="genre")
-#visualize_releases_coverage(data_stats['coverage_styles'], type="style")
-#visualize_releases_coverage(data_stats['coverage_countries'], type="country")
-#visualize_releases_coverage(data_stats['coverage_formats'], type="format")
+#show_releases_coverage(data_stats['coverage_genres'], type="genre")
+#show_releases_coverage(data_stats['coverage_styles'], type="style")
+#show_releases_coverage(data_stats['coverage_countries'], type="country")
+#show_releases_coverage(data_stats['coverage_formats'], type="format")
 
 # Evolution of recording industry in different countries
 countries = ["US", "UK", "Germany", "Brazil", "Japan", "Russia", "India"]
@@ -544,12 +584,12 @@ pickle.dump(data_stats, open(results_stats, 'wb'))
 
 # Per-genre (per-style) track duration analysis
 data_notmixed = select_notmixed(data)
-data_duration_per_genre = visualize_track_duration_per_genre(data_notmixed, type="genre", genres=data_stats['all_genres'])
-data_duration_per_genre_only = visualize_track_duration_per_genre(data_notmixed, type="genre_only", genres=data_stats['all_genres'])
-data_duration_per_style = visualize_track_duration_per_genre(data_notmixed, type="style")
+data_duration_per_genre = show_track_duration_per_genre(data_notmixed, type="genre", genres=data_stats['all_genres'])
+data_duration_per_genre_only = show_track_duration_per_genre(data_notmixed, type="genre_only", genres=data_stats['all_genres'])
+data_duration_per_style = show_track_duration_per_genre(data_notmixed, type="style")
 
 # Not enough data for analysis on tracks annotated by a single style
-#data_duration_per_style_only = visualize_track_duration_per_genre(data, type="style_only")
+#data_duration_per_style_only = show_track_duration_per_genre(data, type="style_only")
 
 
 # Group style analysis by parent genres
@@ -558,11 +598,12 @@ data_duration_per_style_genres = {}
 
 for g in data_stats['all_genres']:
     releases = select_genre(data_notmixed, g)
-    data_duration_per_style_genres[g] = visualize_track_duration_per_genre(releases,
+    data_duration_per_style_genres[g] = show_track_duration_per_genre(releases,
                                                                            type="style",
                                                                            title="Boxplot of track durations (sec.) per style (%s genre)" % g,
                                                                            genre_filter=g)
-    #data_duration_per_style_genres_exclusive[g] = visualize_track_duration_per_genre(releases,
+    #data_duration_per_style_genres_exclusive[g] = show_track_duration_per_genre(releases,
     #                                                                       type="style_only",
     #                                                                       title="Boxplot of track durations (sec.) per style (%s genre) (exclusive)" % g,
     #                                                                       genre_filter=g)
+"""
