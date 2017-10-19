@@ -9,10 +9,11 @@ import matplotlib.pyplot as plt
 
 dump_url = 'https://discogs-data.s3-us-west-2.amazonaws.com/data/2017/discogs_20170401_releases.xml.gz'
 dump_gz = '../data/discogs_20170401_releases.xml.gz'
-dump_json = '../data/discogs_20170401_releases.json'
+dump_json = '../data/discogs_20170401_releases.json.dump'
 dump_pandas = '../data/discogs_20170401_releases.100.hdf'
 
 results_stats = '../results/data_stats.pickle'
+results_duration = '../results/data_duration.pickle'
 
 # Discogs genre tree
 GENRE_TREE = yaml.load(open('../taxonomy/discogs_taxonomy.yaml'))

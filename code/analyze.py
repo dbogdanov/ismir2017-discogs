@@ -4,9 +4,12 @@
 import pandas
 import matplotlib.pyplot as plt
 import numpy as np
+import scipy
 
 import pprint
 import pickle
+
+from adjustText import adjust_text
 
 from config import *
 
@@ -164,6 +167,7 @@ def find_formats(data):
             formats.add(f)
     return sorted(list(formats))
 
+
 def find_countries(data):
     """Find out all countries present in data"""
     releases = data[pandas.notnull(data['country'])]
@@ -184,10 +188,14 @@ def find_artists(data):
 
 # Functions for duration analysis
 
+def select_with_durations(data):
+    """Return all releases with tracks annotated by duration"""
+    return data[pandas.notnull(data['tracks_duration_list'])]
+
 
 def find_durations(data):
-    """Find out all track durations in data"""
-    releases = data[pandas.notnull(data['tracks_duration_list'])]
+    """Find out all track duration values in data"""
+    releases = select_with_durations(data)
     if not len(releases):
         return None
     return [d for dd in releases['tracks_duration_list'].tolist() for d in dd]
@@ -231,9 +239,6 @@ def tracks_per_year(data, start_year, end_year, format=None, genre=None, style=N
     Count the number of tracks from 'start_year' to 'end_year'
     from the specified format, genre, style and country
     """
-    years = range(start_year, end_year+1)
-    number_releases = [len(select(data, year=year, genre=genre, style=style, format=format, country=country)) for year in years]
-    return years, number_releases
     years = range(start_year, end_year+1)
     number_tracks = []
     for year in years:
@@ -399,7 +404,6 @@ def show_releases_coverage(coverage_df, type="genre", show_top=15):
     return
 
 
-
 def coverage_countries_evolution(data,
                                  countries=['US', 'UK', 'Germany', 'Brazil'],
                                  genre=None, style=None, type='releases',
@@ -429,7 +433,8 @@ def coverage_countries_evolution(data,
 
     stats = {}
     for c in countries:
-        years, counts = compute(data, start_year, end_year, genre=genre, style=style, country=c)
+        years, counts = compute(data, start_year, end_year,
+                                genre=genre, style=style, country=c)
         stats[c] = counts
         stats.setdefault('years', years)
 
@@ -444,21 +449,114 @@ def coverage_countries_evolution(data,
     return stats
 
 
+def coverage_genres_evolution(data,
+                              genres,
+                              type='releases',
+                              title=None,
+                              start_year=START_YEAR, end_year=END_YEAR):
+    """
+    Visualize coverage for a dataset in terms countries by year
+    - start_year and end_year define the time interval to consider
+    - countries is a list of countries to plot
+    - genre and style: only consider releases from those genres and styles
+    - type='releases': compute coverage in terms of releases
+    - type='tracks': compute coverage in terms of tracks
+    - title: plot title to show
+    """
+
+    if type == 'releases':
+        compute = releases_per_year
+    elif type == 'tracks':
+        compute = tracks_per_year
+
+    if not title:
+        title = "Number of " + type + " across years by genre"
+
+    stats = {}
+    for g in genres:
+        years, counts = compute(data, start_year, end_year, genre=g)
+        stats[g] = counts
+        stats.setdefault('years', years)
+
+    for g, color in zip(genres, prepare_colors(len(genres))):
+        stats[g] = [float('nan') if x == 0 else x for x in stats[g]]
+        plt.plot(stats['years'], stats[g], label=g, color=color)
+    plt.legend(loc="upper left", bbox_to_anchor=(1, 1))
+    if PLOT_TITLES:
+        plt.title(title)
+    plt.show()
+
+    return stats
+
+
 # Functions for track duration analysis
 
-def plot_track_durations(sorted_genres, values, tracks_number, type, title, shorten_stylenames=None):
+def plot_track_durations(stats, type, sortby="median",
+                         top_n=None, bottom_n=None,
+                         title=None,
+                         shorten_stylenames=False):
+    """
+    Plot duration statistics. Use together with track_duration_per_genre method
+    - stats - the output dict produced by the track_duration_per_genre method
+    - type:
+        - "genre" using all tracks annotated by any genre
+        - "style" using all tracks annotated by any style
+        - "genre_only" using only tracks annotated by a single genre
+        - "style_only" using only tracks annotated by a single style
+    - sortby: "median" - sort by median value,
+              "95vs5" - sort by variability (range between 95% vs 5%)
+              "iqr" -- sort by variability (IQR)
+              "name" - sort by genre (style) name
+    - top_n - only show top n genres (styles) ordered by 'sortby'
+    - bottom_n - only show bottom n genre (styles) ordered by 'sortby'
+    - shorten_stylenames: prints style name without genre name)
+      (e.g., "Ambient" instead of "Electronic - Ambient")
+    """
+
+    if title is None:
+        if type == "genre":
+            title = "Boxplot of track durations (sec.) per genre"
+        elif type == "genre_only":
+            title = "Boxplot of track durations (sec.) per genre (exclusive)"
+        elif type == "style":
+            title = "Boxplot of track durations (sec.) per style"
+        elif type == "style_only":
+            title = "Boxplot of track durations (sec.) per style (exclusive)"
+        else:
+            print("Wrong type:", type)
+            return
+
+    if sortby == "median":
+        sorted_genres = sorted([(stats[g]['median'], g) for g in stats])
+    elif sortby == "95vs5":
+        sorted_genres = sorted([(stats[g]['95vs5'], g) for g in stats])
+    elif sortby == "iqr":
+        sorted_genres = sorted([(stats[g]['iqr'], g) for g in stats])
+    elif sortby == "name":
+        # TODO
+        pass
+
+    if top_n and bottom_n:
+        sorted_genres = sorted_genres[:bottom_n] + sorted_genres[-top_n:]
+    elif top_n:
+        sorted_genres = sorted_genres[-top_n:]
+    elif bottom_n:
+        sorted_genres = sorted_genres[:bottom_n]
+
+    genres = [g for v, g in sorted_genres]
+    values = [stats[g]['durations'] for g in genres]
+
     # 400 genre rows fit well into vertical size of 80 (0.2 row per 1 unit of size)
     plt.figure(figsize=(7, len(sorted_genres)*0.2))
 
     if type == "genre" or type == "genre_only":
-        labels = ["%s (%d)" % (g, tracks_number[g]) for g in sorted_genres]
+        labels = ["%s (%d)" % (g, len(stats[g]['durations'])) for g in genres]
         plt.xlim([0, 25])
-
     elif type == "style" or type == "style_only":
         if shorten_stylenames:
-            labels = ["%s (%d)" % (g[1], tracks_number[g]) for g in sorted_genres]
+            labels = ["%s (%d)" % (g[1], len(stats[g]['durations'])) for g in genres]
         else:
-            labels = ["%s - %s (%d)" % (g[0], g[1], tracks_number[g]) for g in sorted_genres]
+            labels = ["%s - %s (%d)" % (g[0], g[1], len(stats[g]['durations'])) for g in genres]
         plt.xlim([0, 40])
 
     plt.boxplot(values, vert=False, labels=labels, whis=[5, 95])
@@ -468,14 +566,16 @@ def plot_track_durations(sorted_genres, values, tracks_number, type, title, shor
     plt.show()
 
 
-def show_track_duration_per_genre(data, type="genre", title=None, genres=None, skip_genres=None, shorten_stylenames=False):
+def track_duration_per_genre(data, genres, type="genre"):
     """
     Visualize tracks durations per genre (style)
+    - data: input dataframe with release information
     - type:
         - "genre" using all tracks annotated by any genre
         - "style" using all tracks annotated by any style
         - "genre_only" using only tracks annotated by a single genre
         - "style_only" using only tracks annotated by a single style
+    - genres: list of genres (or styles) to include in analysis
     - skip_genres: list of genres (or styles) to exclude from analysis
     - title: plot title to show
     - shorten_stylenames: prints style name without genre name
@@ -486,53 +586,64 @@ def show_track_duration_per_genre(data, type="genre", title=None, genres=None, s
 
     if type == "genre":
         select_func = select_genre
-        if not title:
-            title = "Boxplot of track durations (sec.) per genre"
-
     elif type == "genre_only":
         select_func = select_only_genre
-        if not title:
-            title = "Boxplot of track durations (sec.) per genre (exclusive)"
-
     elif type == "style":
         select_func = select_style
-        if not title:
-            title = "Boxplot of track durations (sec.) per style"
-
     elif type == "style_only":
         select_func = select_only_style
-        if not title:
-            title = "Boxplot of track durations (sec.) per style (exclusive)"
-
     else:
-        print "Wrong type:", type
+        print("Wrong type:", type)
         return
 
     stats = {}
-    tracks_number = {}
-    sorted_genres = []
     for g in genres:
-        if skip_genres:
-            if not skip_genres in g:
-                continue
         releases = select_func(data, g)
+        releases = select_with_durations(releases)
         durations = find_durations(releases)
         if durations is None:
             continue
-        stats[g] = durations
-        #stats[g] = (releases['tracks_duration'] / releases['tracks_number']).dropna().values.tolist()
-        tracks_number[g] = releases['tracks_number'].sum()
-        sorted_genres.append((np.median(stats[g]), np.percentile(stats[g], 95) - np.percentile(stats[g], 5), g))
-        #sorted_genres.append((np.median(stats[g]), scipy.stats.iqr(stats[g]), g))
+        stats[g] = {}
+        stats[g]['durations'] = durations
+        stats[g]['median'] = np.median(stats[g]['durations'])
+        stats[g]['95%'] = np.percentile(stats[g]['durations'], 95)
+        stats[g]['5%'] = np.percentile(stats[g]['durations'], 5)
+        stats[g]['95vs5'] = stats[g]['95%'] - stats[g]['5%']
+        stats[g]['iqr'] = scipy.stats.iqr(stats[g]['durations'])
 
-    result = [(g, m, irq) for m, irq, g in sorted(sorted_genres)]
-    sorted_genres = [g for g, m, irq in result]
-    values = [stats[g] for g in sorted_genres]
-    plot_track_durations(sorted_genres, values, tracks_number, type=type,
-                         title=title, shorten_stylenames=shorten_stylenames)
+    return stats
 
-    return result, sorted_genres, values, tracks_number
 
+def plot_track_durations_2d(stats, genres, xlim=[1, 8], ylim=[0,9], annotate=False):
+    plt.figure(figsize=(12, 12))
+
+    for genre in genres:
+        styles = [s for s in stats.keys() if s[0] == genre]
+        medians = [stats[s]['median'] for s in styles]
+        iqrs = [stats[s]['iqr'] for s in styles]
+        plt.scatter(medians, iqrs, label=genre)
+
+        if annotate:
+            texts = []
+            for s, m, i in zip(styles, medians, iqrs):
+                if m > 3 and m < 5 and i > 1 and i < 3:
+                    continue
+                plt.annotate(s[1], (m, i))
+
+    plt.legend(loc="upper left", bbox_to_anchor=(1, 1))
+    plt.gca().xaxis.grid(True)
+    plt.xlabel("Median duration (mins)")
+    plt.ylabel("Duration variability (mins)")
+    plt.xlim(xlim)
+    plt.ylim(ylim)
+
+    if PLOT_TITLES:
+        title = "Median duration vs. variability (IQR) for styles"
+        plt.title(title)
+    plt.show()
+
+
+# Functions for loading and saving dumps
 
 def sample_release_dump(input_dump, sampled_dump, fraction):
     """
