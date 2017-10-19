@@ -14,6 +14,7 @@ dump_pandas = '../data/discogs_20170401_releases.100.hdf'
 
 results_stats = '../results/data_stats.pickle'
 results_duration = '../results/data_duration.pickle'
+results_duration_evolution = '../results/data_duration_evolution.pickle'
 
 # Discogs genre tree
 GENRE_TREE = yaml.load(open('../taxonomy/discogs_taxonomy.yaml'))

@@ -568,7 +568,7 @@ def plot_track_durations(stats, type, sortby="median",
 
 def track_duration_per_genre(data, genres, type="genre"):
     """
-    Visualize tracks durations per genre (style)
+    Analyze tracks durations per genre (style)
     - data: input dataframe with release information
     - type:
         - "genre" using all tracks annotated by any genre
@@ -641,6 +641,75 @@ def plot_track_durations_2d(stats, genres, xlim=[1, 8], ylim=[0,9], annotate=Fal
         title = "Median duration vs. variability (IQR) for styles"
         plt.title(title)
     plt.show()
+
+
+def plot_track_durations_evolution(stats, genres=None, start_year=START_YEAR, end_year=END_YEAR):
+    """
+    Plot evolution of track durations per genre by year
+    - stats: the output of track_durations_evolution method
+    - genres: list of genres (styles) to plot (all by default)
+    """
+    if genres is None:
+        genres = stats.keys()
+
+    for g, c in zip(genres, prepare_colors(len(genres))):
+        years = stats[g]['year']
+        plt.plot(years, stats[g]['p25'], label="25%")
+        plt.plot(years, stats[g]['median'], label="50%")
+        plt.plot(years, stats[g]['p75'], label="75%")
+
+        plt.legend()
+        #plt.legend(loc="upper left", bbox_to_anchor=(1,1))
+
+        plt.xlim(plt.xlim()[0], end_year)
+        
+        if type(g) is tuple:
+            g = "%s - %s" % (g[0], g[1])
+        
+        if PLOT_TITLES:
+            plt.title("Duration of tracks across years" + " (" + g + ")")
+        else:
+            print "Duration of tracks across years", g
+        plt.show()
+
+    return
+
+
+def track_durations_evolution(data, genres, type="genre", 
+                              start_year=START_YEAR, end_year=END_YEAR, 
+                              ignore_compilations=False):
+    """
+    Analyze evolution of track durations per genre by year
+    - data: input dataframe with release information
+    - genres: list of genres or styles to analyze
+    - type: use "genre" for genres, "style" for styles
+    """
+    stats = {}
+    for g in genres:
+        if type == "genre":
+            releases = select_genre(data, g)
+        elif type == "style":
+            releases = select_style(data, g)
+        else:
+            print("Wrong type: %s", type)
+
+        if ignore_compilations:
+            releases = releases[releases['compilation'] == False]
+
+        stats[g] = {'year': [], 'median': [], 'p25': [], 'p75': []}
+
+        for year in range(start_year, end_year+1):
+            releases_year = select_year(releases, year)
+            durations = find_durations(releases_year)
+            if durations is None:
+                continue
+
+            stats[g]['year'] += [year]
+            stats[g]['median'] += [np.median(durations)]
+            stats[g]['p25'] += [np.percentile(durations, 25)]
+            stats[g]['p75'] += [np.percentile(durations, 75)]
+
+    return stats
 
 
 # Functions for loading and saving dumps
