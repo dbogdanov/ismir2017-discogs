@@ -7,6 +7,8 @@ This repository contains:
  
 Please, cite this paper if you are using our dataset and code.
 
+See [**examples of metadata analysis that can be done**](examples/) using metadata from Discogs.
+
 ## Pre-processed dataset of release metadata from Discogs
 - Pre-processed release metadata dump in [hdf format](https://drive.google.com/file/d/0B9efYsv7Y7gpWmVuUWI0RXQtUFE/view?usp=sharing) (pandas DataFrame).
 - Pre-processed release metadata dump in [json format](https://drive.google.com/file/d/0B9efYsv7Y7gpVmJEQnYxNXBhaHM/view?usp=sharing) (every line in the file is a json dictionary).
