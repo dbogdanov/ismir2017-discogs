@@ -1,11 +1,15 @@
-# ISMIR-2017-Discogs: dataset, code for analysis and results
+# ISMIR-2017-Discogs: Dataset, code for analysis and results
 This repository contains:
 
 - Pre-processed dataset of release metadata from the Discogs database
 - Useful code for analysis of release metadata using this dataset
 - Additional materials for the paper ["Quantifying music trends and facts using editorial metadata from the Discogs database" (Bogdanov & Serra, ISMIR-2017)](http://mtg.upf.edu/node/3828). 
- 
+
 Please, cite this paper if you are using our dataset and code.
+ 
+See [**examples of metadata analysis that can be done**](examples/) using metadata from Discogs.
+
+
 
 ## Pre-processed dataset of release metadata from Discogs
 - Pre-processed release metadata dump in [hdf format](https://drive.google.com/file/d/0B9efYsv7Y7gpWmVuUWI0RXQtUFE/view?usp=sharing) (pandas DataFrame).
