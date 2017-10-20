@@ -1,4 +1,4 @@
-# ISMIR 2017 paper submission: Excerpt from the complete results of the Discogs dataset analysis
+# Examples of analysis of editorial metadata from the Discogs database
 
 ## Dataset coverage
 
