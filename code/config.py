@@ -15,6 +15,12 @@ dump_pandas = '../data/discogs_20170401_releases.100.hdf'
 results_stats = '../results/data_stats.pickle'
 results_duration = '../results/data_duration.pickle'
 results_duration_evolution = '../results/data_duration_evolution.pickle'
+results_formats = '../results/data_formats_evolution.pickle'
+results_formats_styles = '../results/data_formats_evolution_styles.pickle'
+results_genre_trends = '../results/data_genre_trends.pickle'
+results_genre_trends = '../results/data_style_trends.pickle'
+results_genre_cooccurrences = '../results/results_genre_cooccurrences.pickle'
+results_genre_cooccurrences_by_year = '../results/results_genre_cooccurrences_by_year.pickle'
 
 # Discogs genre tree
 GENRE_TREE = yaml.load(open('../taxonomy/discogs_taxonomy.yaml'))

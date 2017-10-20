@@ -738,4 +738,307 @@ def load_release_dump(input_dump):
     """
     return pandas.read_hdf(input_dump)
 
+# Functions for format analysis
 
+def compare_formats(data,
+                    formats=['Vinyl', 'Cassette', 'CD', 'CDr', 'File'],
+                    genre=None,
+                    style=None,
+                    type='releases',
+                    start_year=START_YEAR,
+                    end_year=END_YEAR):
+    """
+    Analyze formats evolution.
+    - data: input DataFrame with releases
+    - type: measure music in terms of "releases" or "tracks"
+    """
+    stats = {}
+
+    if type == 'releases':
+        compute = releases_per_year
+    elif type == 'tracks':
+        compute = tracks_per_year
+
+    stats['years'], stats['all'] = compute(data, start_year, end_year, genre=genre, style=style)
+    for f in formats:
+        _, stats[f] = compute(data, start_year, end_year, format=f, genre=genre, style=style)
+
+    return pandas.DataFrame(stats)
+
+
+def plot_compare_formats(stats, type, genre, absolute=False):
+    """
+    Plot results of analysis of formats
+    - stats: the output of compare_formats method
+    - type: "releases" or "tracks"
+    - absolute: show absolute values instead of percentages
+    """
+    if absolute:
+        plt.plot(stats['years'], stats['all'], label='All')
+        for f in formats:
+            plt.plot(stats['years'], stats[f], label=f)
+
+        plt.legend(loc="upper left", bbox_to_anchor=(1, 1))
+
+        title = "Number of %s per format by year (%s)" % (type, genre)
+        if PLOT_TITLES:
+            plt.title(title)
+        else:
+            print(title)
+    else:
+        for f in formats:
+            plt.plot(stats['years'], 100. * stats[f] / stats['all'], label=f)
+        #plt.legend(loc="upper left", bbox_to_anchor=(1,1))
+        plt.legend()
+        title = "Percentage of %s per format by year (%s)" (type, genre)
+        if PLOT_TITLES:
+            plt.title(title)
+        else:
+            print(title)
+
+    plt.show()
+    return
+
+
+def compare_genres(data,
+                   metric='releases',
+                   genres=None, styles=None, country=None, format=None,
+                   start_year=START_YEAR, end_year=END_YEAR):
+    """
+    Analyze genre or styles evolution
+    - data: input DataFrame with releases
+    - type: measure music in terms of "releases", "tracks", or "artists"
+    - genres: list of genres to analyze
+    - styles: list of styles to analyze (genres and styles cannot be specified together)
+    """
+    if genres and styles:
+        print("ERROR: cannot specify 'genres' and 'styles' simultaneously")
+        return
+    elif genres:
+        genre_or_style = "genre"
+    elif styles:
+        genre_or_style = "style"
+
+    if metric == 'releases':
+        compute = releases_per_year
+    elif metric == 'tracks':
+        compute = tracks_per_year
+    elif metric == 'artists':
+        compute = artists_per_year
+
+    stats = {}
+    stats['years'], stats['all'] = compute(data, start_year, end_year, country=country, format=format)
+
+    if genres:
+        for g in genres:
+            _, stats[g] = compute(data, start_year, end_year, genre=g, country=country, format=format)
+    elif styles:
+        for s in styles:
+            _, stats[s] = compute(data, start_year, end_year, style=s, country=country, format=format)
+        genres = styles
+
+    return pandas.DataFrame(stats)
+
+
+def plot_compare_genres(stats, metric, genres, absolute=False):
+    """
+    Plot results of analysis of genre or style evolution
+    - stats: the output of compare_genres method
+    - metric: measure music in terms of "releases", "tracks", or "artists"
+    - genres: genres or styles to plot
+    - absolute: show absolute values instead of percentages
+    """
+
+    # TODO some code to re-factor
+    """
+    if print_important and styles:
+        # identify only important styles and print those
+        # we only want genres that are visible in the plot, i.e., having larger area
+        important_styles = sorted([(np.sum(stats[s]), s) for s in styles], reverse=True)
+        important_styles = [s for c, s in important_styles]
+        important_styles = [s for g,s in important_styles]
+        print important_styles
+        #for i in range(len(stats['years'])):
+        #    top_styles = [s for st, s in sorted([(stats[s][i], s) for s in styles], reverse=True)[:5]]
+        #    print stats['years'][i], [s for g, s in top_styles]
+    """
+
+    if absolute:
+        #plt.plot(years, stats['all'], label='All')
+        for g, c in zip(genres, prepare_colors(len(genres))):
+            if g is tuple:
+                str_g = "%s - %s" % (g[0], g[1])
+                genre_or_style = "style"
+            else:
+                str_g = g
+                genre_or_style = "genre"
+
+            plt.plot(stats['years'], stats[g], label=str_g, color=c)
+
+        title = "Number of " + metric + " per " + genre_or_style + " by year"
+        if PLOT_TITLES:
+            plt.title(title)
+        else:
+            print(title)
+    else:
+        for g, c in zip(genres, prepare_colors(len(genres))):
+            if g is tuple:
+                str_g = "%s - %s" % (g[0], g[1])
+                genre_or_style = "style"
+            else:
+                str_g = g
+                genre_or_style = "genre"
+
+            plt.plot(stats['years'], 100. * stats[g] / stats['all'], label=str_g, color=c)
+
+        title = "Percentage of " + metric + " per " + genre_or_style + " by year"
+        if PLOT_TITLES:
+            plt.title(title)
+        else:
+            print(title)
+
+    plt.legend(loc="upper left", bbox_to_anchor=(1,1))
+    plt.show()
+
+# TODO add functions for regional trends (move code from my old notebook)
+
+# Functions for genre and styles co-occurrence analysis
+
+def rename_style(style):
+    g, s = style
+    return "%s - %s" % (g, s)
+
+
+# TODO review this function
+"""
+def genre_cooccurences(data, genre, type="genre"):
+    if type=="genre":
+        select_func = select_genre
+    elif type =="style":
+        select_func = select_style
+    else:
+        return "ERROR"
+
+    select = select_func(data, genre)
+    stats = []
+    for g in find_genre(select):
+        stats.append((g, 100. * len(select_func(select, g)) / len(select)))
+    return sorted(stats, key=lambda x: x[1], reverse=True)
+"""
+
+
+def genre_cooccurences_matrix(data, genres=None, type="genre", rename=None):
+    """
+    Compute a genre co-occurrence matrix
+    - data: input DataFrame with releases
+    - type: "genre" or "style"
+    - rename: rename function for genres or styles
+    """
+
+    if type == "genre":
+        find_func = find_genres
+        select_func = select_genre
+    elif type == "style":
+        find_func = find_styles
+        select_func = select_style
+    else:
+        print("ERROR: wrong type")
+
+    if not genres:
+        genres = find_func(data)
+
+    result = {}
+
+    nonempty_genres = {}
+    for g in genres:
+        select = select_func(data, g)
+        if len(select):
+            nonempty_genres[g] = select
+
+    genres = []
+    for g1 in nonempty_genres.keys():
+        select = nonempty_genres[g1]
+        matches = []
+        for g2 in nonempty_genres:
+            if g1 == g2:
+                matches.append(100.)
+            else:
+                matches.append(100. * len(select_func(select, g2)) / len(select))
+        if rename:
+            g1 = rename(g1)
+        result[g1] = matches
+        genres.append(g1)
+
+    df = pandas.DataFrame(result, index=genres).transpose()
+    return df.reindex_axis(sorted(df.columns), axis=1)
+
+
+def plot_genre_cooccurences_matrix(matrix, figsize=None, title=None):
+    plt.figure(figsize=(80, 80))
+    seaborn.heatmap(results_cooccurences['genre'], annot=True, fmt='.1f')
+
+
+    if title is None:
+        title = "Genre co-occurrences (%)"
+
+    if PLOT_TITLES:
+        plt.title(title)
+    else:
+        print(title)
+
+
+def style_cooccurences_by_year(data, style, styles=None, start_year=START_YEAR, end_year=END_YEAR):
+    """
+    Analyze style co-occurrences by year
+    - data: input DataFrame with releases
+    - style: the style for which to compute co-occurrences
+    - styles: styles to compute co-occurrences with.
+              If None, all styles found in data will be used
+    """
+    if not styles:
+        styles = find_styles(data)
+    styles = [s for s in styles if s != style]
+
+    stats = {'styles': {}, 'query_style': style}
+
+    for s in styles:
+        #print "Analyzing", s, len(styles)
+        if s == style:
+            continue
+        years, releases = releases_per_year(data, start_year, end_year, style=s)
+        if 'years' not in stats:
+            stats['years'] = years
+        stats['styles'][s] = releases
+
+    _, stats['All'] = releases_per_year(data, start_year, end_year)
+
+    return stats
+
+
+def plot_style_cooccurences_by_year(stats):
+    styles = stats['styles'].keys()
+
+    # Plot only styles that have high co-occurrence, at least in some year
+    show_styles = [g for g in styles if (100. * stats[g]/stats['All']).max() >= 10]
+
+    #for g in show_styles:
+    #    print g, (100. * stats[g]/stats['All']).max()
+
+    for g, c in zip(show_styles, prepare_colors(len(show_styles))):
+        tmp = pandas.DataFrame({'All': stats['All'], g: stats[g]})
+        plt.plot(stats['years'], 100. * tmp[g] / tmp['All'],
+                 label="%s - %s" % (g[0], g[1]),
+                 color=c)
+
+    plt.legend(loc="upper left", bbox_to_anchor=(1, 1))
+
+    title = "Percentage of %s releases also annotated by other styles by year (%)" % stats['query_style']
+    if PLOT_TITLES:
+        plt.title(title)
+    else:
+        print(title)
+
+    #FIXME hardcoded value that works for ('Electronic', 'House'), but may not work for other styles
+    plt.ylim([0, 60])
+    plt.show()
+    return
