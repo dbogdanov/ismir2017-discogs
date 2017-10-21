@@ -4,8 +4,6 @@
 # Configure filenames used to store and process dump for analysis
 import yaml
 import seaborn
-import matplotlib
-import matplotlib.pyplot as plt
 
 dump_url = 'https://discogs-data.s3-us-west-2.amazonaws.com/data/2017/discogs_20170401_releases.xml.gz'
 dump_gz = '../data/discogs_20170401_releases.xml.gz'
@@ -18,7 +16,7 @@ results_duration_evolution = '../results/data_duration_evolution.pickle'
 results_formats = '../results/data_formats_evolution.pickle'
 results_formats_styles = '../results/data_formats_evolution_styles.pickle'
 results_genre_trends = '../results/data_genre_trends.pickle'
-results_genre_trends = '../results/data_style_trends.pickle'
+results_style_trends = '../results/data_style_trends.pickle'
 results_genre_cooccurrences = '../results/results_genre_cooccurrences.pickle'
 results_genre_cooccurrences_by_year = '../results/results_genre_cooccurrences_by_year.pickle'
 
@@ -38,13 +36,10 @@ IGNORE_GENRES = ["Brass & Military",
 START_YEAR = 1970
 END_YEAR = 2016
 PLOT_TITLES = True
+PLOT_LARGE = False
 
 
 # Plotting helper function
 def prepare_colors(number):
     return seaborn.color_palette("hls", number)
 
-# configure plotting style
-def set_style():
-    plt.style.use(['seaborn-white', 'seaborn-paper'])
-    matplotlib.rc("font", family="Times New Roman")

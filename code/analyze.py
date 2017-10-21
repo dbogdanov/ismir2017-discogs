@@ -9,10 +9,22 @@ import scipy
 import pprint
 import pickle
 
-from adjustText import adjust_text
-
 from config import *
 
+
+# configure plotting style
+if PLOT_LARGE:
+    matplotlib.rc('xtick', labelsize=14) 
+    matplotlib.rc('ytick', labelsize=14)
+    matplotlib.rc('legend', fontsize=14) 
+else:
+    matplotlib.rc('xtick', labelsize=10) 
+    matplotlib.rc('ytick', labelsize=10) 
+    matplotlib.rc('legend', fontsize=10) 
+
+def set_style():
+    plt.style.use(['seaborn-white', 'seaborn-paper'])
+    matplotlib.rc("font", family="Times New Roman", size=22)
 
 # Functions for selecting data
 
@@ -766,15 +778,16 @@ def compare_formats(data,
     return pandas.DataFrame(stats)
 
 
-def plot_compare_formats(stats, type, genre, absolute=False):
+def plot_compare_formats(stats, type, formats=['Vinyl', 'Cassette', 'CD', 'CDr', 'File'], genre=None, absolute=False):
     """
     Plot results of analysis of formats
     - stats: the output of compare_formats method
     - type: "releases" or "tracks"
+    - formats: list of formats to compare
     - absolute: show absolute values instead of percentages
     """
     if absolute:
-        plt.plot(stats['years'], stats['all'], label='All')
+        #plt.plot(stats['years'], stats['all'], label='All')
         for f in formats:
             plt.plot(stats['years'], stats[f], label=f)
 
@@ -790,7 +803,7 @@ def plot_compare_formats(stats, type, genre, absolute=False):
             plt.plot(stats['years'], 100. * stats[f] / stats['all'], label=f)
         #plt.legend(loc="upper left", bbox_to_anchor=(1,1))
         plt.legend()
-        title = "Percentage of %s per format by year (%s)" (type, genre)
+        title = "Percentage of %s per format by year (%s)" % (type, genre)
         if PLOT_TITLES:
             plt.title(title)
         else:
@@ -835,12 +848,11 @@ def compare_genres(data,
     elif styles:
         for s in styles:
             _, stats[s] = compute(data, start_year, end_year, style=s, country=country, format=format)
-        genres = styles
 
     return pandas.DataFrame(stats)
 
 
-def plot_compare_genres(stats, metric, genres, absolute=False):
+def plot_compare_genres(stats, metric, genres, absolute=False, shorten=False):
     """
     Plot results of analysis of genre or style evolution
     - stats: the output of compare_genres method
@@ -862,12 +874,17 @@ def plot_compare_genres(stats, metric, genres, absolute=False):
         #    top_styles = [s for st, s in sorted([(stats[s][i], s) for s in styles], reverse=True)[:5]]
         #    print stats['years'][i], [s for g, s in top_styles]
     """
-
+    if PLOT_LARGE:
+        plt.figure(dpi=160)
+    
     if absolute:
         #plt.plot(years, stats['all'], label='All')
         for g, c in zip(genres, prepare_colors(len(genres))):
-            if g is tuple:
-                str_g = "%s - %s" % (g[0], g[1])
+            if type(g) is tuple:
+                if shorten:
+                    str_g = g[1]
+                else:
+                    str_g = "%s - %s" % (g[0], g[1])
                 genre_or_style = "style"
             else:
                 str_g = g
@@ -882,8 +899,11 @@ def plot_compare_genres(stats, metric, genres, absolute=False):
             print(title)
     else:
         for g, c in zip(genres, prepare_colors(len(genres))):
-            if g is tuple:
-                str_g = "%s - %s" % (g[0], g[1])
+            if type(g) is tuple:
+                if shorten:
+                    str_g = g[1]
+                else:
+                    str_g = "%s - %s" % (g[0], g[1])
                 genre_or_style = "style"
             else:
                 str_g = g
